@@ -1,62 +1,62 @@
 
 
-interface AST {
-    equals(other: AST): Boolean;
+export interface AST {
+    equals(other: AST): boolean;
 };
 
 
-class Num implements AST {
+export class Num implements AST {
     constructor(public value: number) { }
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof Num &&
             this.value == other.value;
     }
 }
 
 
-class Id implements AST {
+export class Id implements AST {
     constructor(public value: string) { }
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof Id &&
             other.value == this.value;
     }
 }
 
-class Not implements AST {
+export class Not implements AST {
     constructor(public term: AST) { }
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof Not &&
             other.term.equals(this.term);
     }
 }
 
-class Equal implements AST {
+export class Equal implements AST {
     constructor(public left: AST, public right: AST) { }
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof Equal &&
             other.left.equals(this.left) &&
             other.right.equals(this.right);
     }
 }
 
-class NotEqual implements AST {
+export class NotEqual implements AST {
     constructor(public left: AST, public right: AST) { }
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof NotEqual &&
             other.left.equals(this.left) &&
             other.right.equals(this.right);
     }
 }
 
-class Add implements AST {
+export class Add implements AST {
     constructor(public left: AST, public right: AST) { }
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof Add &&
             other.left.equals(this.left) &&
             other.right.equals(this.right);
@@ -64,20 +64,20 @@ class Add implements AST {
     }
 }
 
-class Subtract implements AST {
+export class Subtract implements AST {
     constructor(public left: AST, public right: AST) { }
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof Subtract &&
             other.left.equals(this.left) &&
             other.right.equals(this.right);
     }
 }
 
-class Multiply implements AST {
+export class Multiply implements AST {
     constructor(public left: AST, public right: AST) { }
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof Multiply &&
             other.left.equals(this.left) &&
             other.right.equals(this.right);
@@ -85,10 +85,10 @@ class Multiply implements AST {
 
 }
 
-class Divide implements AST {
+export class Divide implements AST {
     constructor(public left: AST, public right: AST) { }
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof Divide &&
             other.left.equals(this.left) &&
             other.right.equals(this.right);
@@ -96,11 +96,11 @@ class Divide implements AST {
 }
 
 
-class Call implements AST {
+export class Call implements AST {
     constructor(public callee: string,
         public args: Array<AST>) { }
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof Call &&
             this.callee === other.callee &&
             this.args.length === other.args.length &&
@@ -109,19 +109,19 @@ class Call implements AST {
     }
 }
 
-class Return implements AST {
+export class Return implements AST {
     constructor(public term: AST) { }
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof Return &&
             other.term.equals(this.term);
     }
 }
 
-class Block implements AST {
+export class Block implements AST {
     constructor(public statements: Array<AST>) { }
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof Block &&
             this.statements.length === other.statements.length &&
             this.statements.every((state, i) =>
@@ -129,13 +129,13 @@ class Block implements AST {
     }
 }
 
-class If implements AST {
+export class If implements AST {
     constructor(public conditional: AST,
         public consequence: AST,
         public alternative: AST
     ) { }
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof If &&
             this.conditional.equals(other.conditional) &&
             this.consequence.equals(other.consequence) &&
@@ -143,13 +143,13 @@ class If implements AST {
     }
 }
 
-class Funct implements AST {
+export class Funct implements AST {
     constructor(public name: string,
         public parameters: Array<string>,
         public body: AST
     ) { }
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof Funct &&
             this.name === other.name &&
             this.parameters.length === other.parameters.length &&
@@ -159,36 +159,36 @@ class Funct implements AST {
     }
 }
 
-class Var implements AST {
+export class Var implements AST {
     constructor(public name: string,
         public value: AST
     ) {}
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof Var &&
             this.name === other.name &&
             this.value.equals(other.value);
     }
 }
 
-class Assign implements AST {
+export class Assign implements AST {
     constructor(public name: string,
                 public value: AST
     ) {}
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof Assign &&
             this.name === other.name &&
             this.value.equals(other.value);
     }
 }
 
-class While implements AST {
+export class While implements AST {
     constructor(public conditional: AST,
         public body: AST
     ) {}
 
-    equals(other: AST): Boolean {
+    equals(other: AST): boolean {
         return other instanceof While &&
             this.conditional.equals(other.conditional) &&
             this.body.equals(other.body);
