@@ -1,12 +1,18 @@
 
 
 export interface AST {
+    emit(): void;
     equals(other: AST): boolean;
 };
 
+let emit = console.log;
 
 export class Num implements AST {
     constructor(public value: number) { }
+
+    emit() {
+        emit(`  ldr r0, =${this.value}`);
+    }
 
     equals(other: AST): boolean {
         return other instanceof Num &&
@@ -18,6 +24,8 @@ export class Num implements AST {
 export class Id implements AST {
     constructor(public value: string) { }
 
+    emit() { throw Error("Not implemented yet"); }
+
     equals(other: AST): boolean {
         return other instanceof Id &&
             other.value == this.value;
@@ -27,6 +35,13 @@ export class Id implements AST {
 export class Not implements AST {
     constructor(public term: AST) { }
 
+    emit() { 
+        this.term.emit();
+        emit(`  cmp r0, #0`);
+        emit(`  moveq r0, #1`);
+        emit(`  movne r0, #0`);
+    }
+
     equals(other: AST): boolean {
         return other instanceof Not &&
             other.term.equals(this.term);
@@ -35,6 +50,16 @@ export class Not implements AST {
 
 export class Equal implements AST {
     constructor(public left: AST, public right: AST) { }
+
+    emit() { 
+        this.left.emit();
+        emit(`  push {r0, ip}`);
+        this.right.emit();
+        emit(`  pop {r1, ip}`);
+        emit(`  cmp r0, r1`);
+        emit(`  moveq r0, #1`);
+        emit(`  movne r0, #0`);
+    }
 
     equals(other: AST): boolean {
         return other instanceof Equal &&
@@ -46,6 +71,16 @@ export class Equal implements AST {
 export class NotEqual implements AST {
     constructor(public left: AST, public right: AST) { }
 
+    emit() { 
+        this.left.emit();
+        emit(`  push {r0, ip}`);
+        this.right.emit();
+        emit(`  pop {r1, ip}`);
+        emit(`  cmp r0, r1`);
+        emit(`  moveq r0, #0`);
+        emit(`  movne r0, #1`);
+    }
+
     equals(other: AST): boolean {
         return other instanceof NotEqual &&
             other.left.equals(this.left) &&
@@ -55,6 +90,14 @@ export class NotEqual implements AST {
 
 export class Add implements AST {
     constructor(public left: AST, public right: AST) { }
+
+    emit() { 
+        this.left.emit();
+        emit(`  push {r0, ip}`);
+        this.right.emit();
+        emit(`  pop {r1, ip}`);
+        emit(`  add r0, r1, r0`);
+    }
 
     equals(other: AST): boolean {
         return other instanceof Add &&
@@ -67,6 +110,14 @@ export class Add implements AST {
 export class Subtract implements AST {
     constructor(public left: AST, public right: AST) { }
 
+    emit() { 
+        this.left.emit();
+        emit(`  push {r0, ip}`);
+        this.right.emit();
+        emit(`  pop {r1, ip}`);
+        emit(`  sub r0, r1, r0`);
+    }
+
     equals(other: AST): boolean {
         return other instanceof Subtract &&
             other.left.equals(this.left) &&
@@ -76,6 +127,14 @@ export class Subtract implements AST {
 
 export class Multiply implements AST {
     constructor(public left: AST, public right: AST) { }
+
+    emit() { 
+        this.left.emit();
+        emit(`  push {r0, ip}`);
+        this.right.emit();
+        emit(`  pop {r1, ip}`);
+        emit(`  mul r0, r1, r0`);
+    }
 
     equals(other: AST): boolean {
         return other instanceof Multiply &&
@@ -87,6 +146,14 @@ export class Multiply implements AST {
 
 export class Divide implements AST {
     constructor(public left: AST, public right: AST) { }
+
+    emit() { 
+        this.left.emit();
+        emit(`  push {r0, ip}`);
+        this.right.emit();
+        emit(`  pop {r1, ip}`);
+        emit(`  udiv r0, r1, r0`);
+    }
 
     equals(other: AST): boolean {
         return other instanceof Divide &&
@@ -100,6 +167,26 @@ export class Call implements AST {
     constructor(public callee: string,
         public args: Array<AST>) { }
 
+    emit() { 
+        let count = this.args.length;
+        if (count === 0) {
+            emit(`  bl ${this.callee}`);
+        } else if (count === 1) {
+            this.args[0].emit();
+            emit(`  bl ${this.callee}`);
+        } else if (count >= 2 && count <= 4) {
+            emit(`  sub sp, sp, #16`);
+            this.args.forEach((arg,i) => {
+                arg.emit();
+                emit(`  str r0, [sp, #${4 * i}]`);
+            });
+            emit(`  pop {r0, r1, r2, r3}`);
+            emit(`  bl ${this.callee}`);
+        } else {
+            throw Error("More tan 4 arguments: not supported");
+        }
+    }
+
     equals(other: AST): boolean {
         return other instanceof Call &&
             this.callee === other.callee &&
@@ -112,6 +199,8 @@ export class Call implements AST {
 export class Return implements AST {
     constructor(public term: AST) { }
 
+    emit() { throw Error("Not implemented yet"); }
+
     equals(other: AST): boolean {
         return other instanceof Return &&
             other.term.equals(this.term);
@@ -120,6 +209,11 @@ export class Return implements AST {
 
 export class Block implements AST {
     constructor(public statements: Array<AST>) { }
+
+    emit() {
+        this.statements.forEach((statm) => 
+            statm.emit());
+     }
 
     equals(other: AST): boolean {
         return other instanceof Block &&
@@ -135,6 +229,8 @@ export class If implements AST {
         public alternative: AST
     ) { }
 
+    emit() { throw Error("Not implemented yet"); }
+
     equals(other: AST): boolean {
         return other instanceof If &&
             this.conditional.equals(other.conditional) &&
@@ -148,6 +244,8 @@ export class Funct implements AST {
         public parameters: Array<string>,
         public body: AST
     ) { }
+
+    emit() { throw Error("Not implemented yet"); }
 
     equals(other: AST): boolean {
         return other instanceof Funct &&
@@ -164,6 +262,8 @@ export class Var implements AST {
         public value: AST
     ) {}
 
+    emit() { throw Error("Not implemented yet"); }
+
     equals(other: AST): boolean {
         return other instanceof Var &&
             this.name === other.name &&
@@ -175,6 +275,8 @@ export class Assign implements AST {
     constructor(public name: string,
                 public value: AST
     ) {}
+
+    emit() { throw Error("Not implemented yet"); }
 
     equals(other: AST): boolean {
         return other instanceof Assign &&
@@ -188,6 +290,8 @@ export class While implements AST {
         public body: AST
     ) {}
 
+    emit() { throw Error("Not implemented yet"); }
+
     equals(other: AST): boolean {
         return other instanceof While &&
             this.conditional.equals(other.conditional) &&
@@ -195,4 +299,40 @@ export class While implements AST {
     }
 }
 
+export class Main implements AST {
+    constructor(public statements: Array<AST>) {}
 
+    emit() {
+        emit(`.global main`);
+        emit(`main:`);
+        emit(`  push {fp, lr}`);
+        this.statements.forEach((statement)=>
+            statement.emit());
+        emit(`  mov r0, #0`);
+        emit(`  pop {fp, pc}`);
+    }
+
+    equals(other: AST): boolean {
+        return other instanceof Main &&
+            this.statements.length === other.statements.length &&
+            this.statements.every((stat,i) => 
+                other.statements[i] === stat);
+    }
+}
+
+export class Assert implements AST {
+    constructor(public condition: AST) {}
+
+    emit() {
+        this.condition.emit();
+        emit(`  cmp r0, #1`);
+        emit(`  moveq r0, #'.'`);
+        emit(`  movne r0, #'F'`);
+        emit(`  bl putchar`);
+    }
+
+    equals(other: AST): boolean {
+        return other instanceof Assert &&
+            this.condition.equals(other.condition);
+    }
+}

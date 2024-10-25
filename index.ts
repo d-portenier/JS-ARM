@@ -1,6 +1,7 @@
 //import { Parser, ParseResult } from "./Parser.ts
 import Parser from "./Parser"
-import {AST, Num, Id, Not, Equal, NotEqual, Add, Subtract, Multiply, Divide, Call, Return, Block, If, Funct, Var, Assign, While} from "./AST"
+
+import {AST, Num, Id, Not, Equal, NotEqual, Add, Subtract, Multiply, Divide, Call, Return, Block, If, Funct, Var, Assign, While, Main, Assert} from "./AST"
 
 
 let { regexp, constant, error, zeroOrMore, maybe } = Parser;
@@ -58,18 +59,21 @@ expression <- comparison
 */
 
 // Initialize with error-parser
-let expression: Parser<AST> = Parser.error("Expression parser used before definition")
+let expression: Parser<AST> = error("Expression parser used before definition")
 
 // args <- (expression (COMMA expression)*)?
-let args: Parser<Array<AST>> =
+let args: Parser<Array<AST>> = 
   expression.bind((arg) =>
     zeroOrMore(COMMA.and(expression)).bind((args) =>
-      constant([arg, ...args])).or(constant([])));
+      constant([arg, ...args]))).or(constant([]));
 
 // call <- ID LEFT_PAREN args RIGHT_PAREN
 let call: Parser<AST> = ID.bind((callee) =>
   LEFT_PAREN.and(args.bind((args) =>
-    RIGHT_PAREN.and(constant(new Call(callee, args))))));
+    RIGHT_PAREN.and(constant(
+      callee === 'assert'
+      ? new Assert(args[0])
+      : new Call(callee, args))))));
 
 // atom <- call / ID / NUMBER / LEFT_PAREN expression RIGHT_PAREN
 let atom: Parser<AST> = call.or(iden).or(NUMBER).or(
@@ -99,9 +103,9 @@ let sum: Parser<AST> = infix(PLUS.or(MINUS), product);
 let comparison = infix(EQUAL.or(NOT_EQUAL), sum);
 
 // expression <- comparison
-expression = comparison;
+expression.parse = comparison.parse;
 
-expression.parseStringToCompletion("x*y+z")
+// expression.parseStringToCompletion("x*y+z")
 
 
 
@@ -135,7 +139,7 @@ statement <- returnStatement
 */
 
 
-let statement: Parser<AST> = Parser.error("Statement parser used before definition");
+let statement: Parser<AST> = error("Statement parser used before definition");
 
 // returnStatement <- RETURN expression SEMICOLON
 let returnStatement: Parser<AST> = RETURN.and(expression).bind((term) =>
@@ -172,7 +176,7 @@ let assinmentStatement: Parser<AST> = ID.bind((name) =>
       SEMICOLON.and(constant(new Assign(name, value)))));
 
 // blockStatement <- LEFT_BRACE statement* RIGHT_BRACE
-let blockStatement: Parser<AST> = LEFT_BRACE.and(zeroOrMore(statement).bind((statements) => 
+let blockStatement: Parser<Block> = LEFT_BRACE.and(zeroOrMore(statement).bind((statements) => 
   RIGHT_BRACE.and(constant(new Block(statements)))));
 
 // parameters <- (ID (COMMA ID)*)?
@@ -186,7 +190,9 @@ let parameters: Parser<Array<string>> = ID.bind((param) =>
 let functionStatement: Parser<AST> = FUNCTION.and(ID).bind((name) =>
   LEFT_PAREN.and(parameters).bind((params) =>
     RIGHT_PAREN.and(blockStatement).bind((block) =>
-      constant(new Funct(name, params, block)))));
+      constant(
+        name === 'main' ? new Main(block.statements) : 
+        new Funct(name, params, block)))));
 
 // statement <- returnStatement
 //            / ifStatement
@@ -223,6 +229,11 @@ let source = `
   }
 `;
 
+let emtyMain = `
+function main() {
+  assert(0);
+}`;
+
 let expected = new Block([
   new Funct("factorial", ["n"], new Block([
     new Var("result", new Num(1)),
@@ -237,8 +248,19 @@ let expected = new Block([
   ])),
 ]);
 
-let result = parser.parseStringToCompletion(source);
+// let result = parser.parseStringToCompletion(source);
 
-console.assert(result.equals(expected));
+// console.assert(result.equals(expected));
 
 
+parser.parseStringToCompletion(`
+  function main() {
+    assert(!(0+1));
+    {
+      assert(42 == 4 + 2* (12-2) + 3 * (5+1));
+      assert(1);
+      putchar(48);
+      assert(rand() == 1);
+    }
+}
+`).emit();
