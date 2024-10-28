@@ -2,15 +2,16 @@
 Building a JS Compiler for ARM. Fully Book: [Compiling to Assembly from Scratch](https://keleshev.com/compiling-to-assembly-from-scratch/)
 
 
-## Preparation
-
-### JS
-To run JS locally, use nodeJS. NVM (Node Version Manager) is very smooth to handle Node versions. As we're coding in type-scipt, I somehow ended up with the command: **npx tsc**, which transpiles type-script into java script.
-
-### Assembling
-Getting from Assmebly to executable is done with:
+## Pipeline
+To test the full pipeline, given everything needed install do the following:
 ```sh
-arm-linux-gnueabihf-gcc -static hello.s -o hello
-./hello
+$ npx tsc #transpile TS to JS
+$ node index.js >test.s # Compile the "source code" defined inside index.ts
+$ arm-linux-gnueabihf-gcc -static test.s -o test # Assemble
+$ ./test # execute, if not working, use the following:
+$ qemu-arm ./test # execute
 ```
-The shell is smart enough, to invoke qemu-arm under the hood...
+
+## The Language
+The language is a very (very!) simple subset of JS. No globals, no for, etc...
+
