@@ -1,9 +1,14 @@
 # JS-ARM
 Building a JS Compiler for ARM. Fully Book: [Compiling to Assembly from Scratch](https://keleshev.com/compiling-to-assembly-from-scratch/)
 
+## Requirements
+- TypeScript pipeline, e.g. npm/npx
+- Arm Assembler: arm-linux-gnuabihf-gcc
+- qemu-user (if you don't have an ARM cpu)
+
 
 ## Pipeline
-To test the full pipeline, given everything needed install do the following:
+To test the full pipeline, given all needed tools are installed, do the following:
 ```sh
 $ npx tsc #transpile TS to JS
 $ node index.js >test.s # Compile the "source code" defined inside index.ts
