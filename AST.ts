@@ -1,7 +1,24 @@
 
+class Label {
+    static counter = 0;
+    value: number;
+
+    constructor() {
+        this.value = Label.counter++;
+    }
+
+    toString() {
+        return `.L${this.value}`;
+    }
+}
+
+export class Environment {
+    constructor(public locals: Map<string, number>,
+                public nextLocalOffset: number) {}
+}
 
 export interface AST {
-    emit(): void;
+    emit(env: Environment): void;
     equals(other: AST): boolean;
 };
 
@@ -10,7 +27,7 @@ let emit = console.log;
 export class Num implements AST {
     constructor(public value: number) { }
 
-    emit() {
+    emit(env: Environment) {
         emit(`  ldr r0, =${this.value}`);
     }
 
@@ -24,7 +41,14 @@ export class Num implements AST {
 export class Id implements AST {
     constructor(public value: string) { }
 
-    emit() { throw Error("Not implemented yet"); }
+    emit(env: Environment) { 
+        let offset = env.locals.get(this.value);
+        if (offset) {
+            emit(`  ldr r0, [fp, #${offset}]`);
+        } else {
+            throw Error(`Undefined variable: ${this.value}`);
+        }
+    }
 
     equals(other: AST): boolean {
         return other instanceof Id &&
@@ -35,8 +59,8 @@ export class Id implements AST {
 export class Not implements AST {
     constructor(public term: AST) { }
 
-    emit() { 
-        this.term.emit();
+    emit(env: Environment) { 
+        this.term.emit(env);
         emit(`  cmp r0, #0`);
         emit(`  moveq r0, #1`);
         emit(`  movne r0, #0`);
@@ -51,10 +75,10 @@ export class Not implements AST {
 export class Equal implements AST {
     constructor(public left: AST, public right: AST) { }
 
-    emit() { 
-        this.left.emit();
+    emit(env: Environment) { 
+        this.left.emit(env);
         emit(`  push {r0, ip}`);
-        this.right.emit();
+        this.right.emit(env);
         emit(`  pop {r1, ip}`);
         emit(`  cmp r0, r1`);
         emit(`  moveq r0, #1`);
@@ -71,10 +95,10 @@ export class Equal implements AST {
 export class NotEqual implements AST {
     constructor(public left: AST, public right: AST) { }
 
-    emit() { 
-        this.left.emit();
+    emit(env: Environment) { 
+        this.left.emit(env);
         emit(`  push {r0, ip}`);
-        this.right.emit();
+        this.right.emit(env);
         emit(`  pop {r1, ip}`);
         emit(`  cmp r0, r1`);
         emit(`  moveq r0, #0`);
@@ -91,10 +115,10 @@ export class NotEqual implements AST {
 export class Add implements AST {
     constructor(public left: AST, public right: AST) { }
 
-    emit() { 
-        this.left.emit();
+    emit(env: Environment) { 
+        this.left.emit(env);
         emit(`  push {r0, ip}`);
-        this.right.emit();
+        this.right.emit(env);
         emit(`  pop {r1, ip}`);
         emit(`  add r0, r1, r0`);
     }
@@ -110,10 +134,10 @@ export class Add implements AST {
 export class Subtract implements AST {
     constructor(public left: AST, public right: AST) { }
 
-    emit() { 
-        this.left.emit();
+    emit(env: Environment) { 
+        this.left.emit(env);
         emit(`  push {r0, ip}`);
-        this.right.emit();
+        this.right.emit(env);
         emit(`  pop {r1, ip}`);
         emit(`  sub r0, r1, r0`);
     }
@@ -128,10 +152,10 @@ export class Subtract implements AST {
 export class Multiply implements AST {
     constructor(public left: AST, public right: AST) { }
 
-    emit() { 
-        this.left.emit();
+    emit(env: Environment) { 
+        this.left.emit(env);
         emit(`  push {r0, ip}`);
-        this.right.emit();
+        this.right.emit(env);
         emit(`  pop {r1, ip}`);
         emit(`  mul r0, r1, r0`);
     }
@@ -147,10 +171,10 @@ export class Multiply implements AST {
 export class Divide implements AST {
     constructor(public left: AST, public right: AST) { }
 
-    emit() { 
-        this.left.emit();
+    emit(env: Environment) { 
+        this.left.emit(env);
         emit(`  push {r0, ip}`);
-        this.right.emit();
+        this.right.emit(env);
         emit(`  pop {r1, ip}`);
         emit(`  udiv r0, r1, r0`);
     }
@@ -167,17 +191,17 @@ export class Call implements AST {
     constructor(public callee: string,
         public args: Array<AST>) { }
 
-    emit() { 
+    emit(env: Environment) { 
         let count = this.args.length;
         if (count === 0) {
             emit(`  bl ${this.callee}`);
         } else if (count === 1) {
-            this.args[0].emit();
+            this.args[0].emit(env);
             emit(`  bl ${this.callee}`);
         } else if (count >= 2 && count <= 4) {
             emit(`  sub sp, sp, #16`);
             this.args.forEach((arg,i) => {
-                arg.emit();
+                arg.emit(env);
                 emit(`  str r0, [sp, #${4 * i}]`);
             });
             emit(`  pop {r0, r1, r2, r3}`);
@@ -199,7 +223,11 @@ export class Call implements AST {
 export class Return implements AST {
     constructor(public term: AST) { }
 
-    emit() { throw Error("Not implemented yet"); }
+    emit(env: Environment) { 
+        this.term.emit(env);
+        emit(`  mov sp, fp`);
+        emit(`  pop {fp, pc}`);
+    }
 
     equals(other: AST): boolean {
         return other instanceof Return &&
@@ -210,9 +238,9 @@ export class Return implements AST {
 export class Block implements AST {
     constructor(public statements: Array<AST>) { }
 
-    emit() {
+    emit(env: Environment) {
         this.statements.forEach((statm) => 
-            statm.emit());
+            statm.emit(env));
      }
 
     equals(other: AST): boolean {
@@ -229,7 +257,18 @@ export class If implements AST {
         public alternative: AST
     ) { }
 
-    emit() { throw Error("Not implemented yet"); }
+    emit(env: Environment) {
+        let ifFalseLabel = new Label();
+        let endIfLabel = new Label();
+        this.conditional.emit(env);
+        emit(`  cmp r0, #0`);
+        emit(`  beq ${ifFalseLabel}`);
+        this.consequence.emit(env);
+        emit(`  b ${endIfLabel}`);
+        emit(`${ifFalseLabel}:`);
+        this.alternative.emit(env);
+        emit(`${endIfLabel}:`);
+    }
 
     equals(other: AST): boolean {
         return other instanceof If &&
@@ -245,7 +284,38 @@ export class Funct implements AST {
         public body: AST
     ) { }
 
-    emit() { throw Error("Not implemented yet"); }
+    emit(_: Environment) { 
+        if (this.parameters.length > 4)
+            throw Error("More than 4 parameters in Function Definition: not supported");
+
+        emit(``);
+        emit(`.global ${this.name}`);
+        emit(`${this.name}:`)
+        this.emitPrologue();
+        let env = this.setUpEnvironment();
+        this.body.emit(env);
+        this.emitEpilogue();
+    }
+
+    setUpEnvironment() {
+        let locals = new Map();
+        this.parameters.forEach((param, i) => {
+            locals.set(param, 4*i - 16);
+        });
+        return new Environment(locals, -20);
+    }
+
+    emitPrologue() {
+        emit(`  push {fp, lr}`);
+        emit(`  mov fp, sp`);
+        emit(`  push {r0, r1, r2, r3}`);
+    }
+
+    emitEpilogue() {
+        emit(`  mov sp, fp`);
+        emit(`  mov r0, #0`);
+        emit(`  pop {fp, pc}`);
+    }
 
     equals(other: AST): boolean {
         return other instanceof Funct &&
@@ -262,7 +332,13 @@ export class Var implements AST {
         public value: AST
     ) {}
 
-    emit() { throw Error("Not implemented yet"); }
+    emit(env: Environment) { 
+        this.value.emit(env);
+        emit(`  push {r0, ip}`);
+        // This wasts up to 50% of memory, as we need 8 byte alignment
+        env.locals.set(this.name, env.nextLocalOffset - 4);
+        env.nextLocalOffset -= 8;
+    }
 
     equals(other: AST): boolean {
         return other instanceof Var &&
@@ -276,7 +352,15 @@ export class Assign implements AST {
                 public value: AST
     ) {}
 
-    emit() { throw Error("Not implemented yet"); }
+    emit(env: Environment) { 
+        this.value.emit(env);
+        let offset = env.locals.get(this.name);
+        if (offset) {
+            emit(`  str r0, [fp, #${offset}]`);
+        } else {
+            throw Error(`Undefined variable: ${this.name}`);
+        }
+    }
 
     equals(other: AST): boolean {
         return other instanceof Assign &&
@@ -290,7 +374,18 @@ export class While implements AST {
         public body: AST
     ) {}
 
-    emit() { throw Error("Not implemented yet"); }
+    emit(env: Environment) { 
+        let loopStart = new Label();
+        let loopEnd = new Label();
+
+        emit(`${loopStart}:`);
+        this.conditional.emit(env);
+        emit(`  cmp r0, #0`);
+        emit(`  beq ${loopEnd}`);
+        this.body.emit(env);
+        emit(`  b ${loopStart}`);
+        emit(`${loopEnd}:`)
+    }
 
     equals(other: AST): boolean {
         return other instanceof While &&
@@ -299,40 +394,4 @@ export class While implements AST {
     }
 }
 
-export class Main implements AST {
-    constructor(public statements: Array<AST>) {}
 
-    emit() {
-        emit(`.global main`);
-        emit(`main:`);
-        emit(`  push {fp, lr}`);
-        this.statements.forEach((statement)=>
-            statement.emit());
-        emit(`  mov r0, #0`);
-        emit(`  pop {fp, pc}`);
-    }
-
-    equals(other: AST): boolean {
-        return other instanceof Main &&
-            this.statements.length === other.statements.length &&
-            this.statements.every((stat,i) => 
-                other.statements[i] === stat);
-    }
-}
-
-export class Assert implements AST {
-    constructor(public condition: AST) {}
-
-    emit() {
-        this.condition.emit();
-        emit(`  cmp r0, #1`);
-        emit(`  moveq r0, #'.'`);
-        emit(`  movne r0, #'F'`);
-        emit(`  bl putchar`);
-    }
-
-    equals(other: AST): boolean {
-        return other instanceof Assert &&
-            this.condition.equals(other.condition);
-    }
-}
